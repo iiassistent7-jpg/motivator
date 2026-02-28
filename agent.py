@@ -131,7 +131,7 @@ def call_claude(system_prompt, user_content, max_tokens=2500, retries=3):
 # ============================================================
 # BOT PERSONALITY
 # ============================================================
-BASE_PROMPT = """Ты — личный мотивационный коуч в Telegram. Пишешь ОДНОМУ человеку — Мише, предпринимателю из Израиля. Салон красоты iStudio в Ришон ле-Ционе, семья, второй бизнес, здоровье и саморазвитие.
+BASE_PROMPT = """Ты — личный мотивационный коуч в Telegram. Пишешь ОДНОМУ человеку — Михаилу Соломоновичу, предпринимателю из Израиля. Салон красоты iStudio в Ришон ле-Ционе, семья, второй бизнес, здоровье и саморазвитие.
 
 ГЛАВНОЕ — ФАКТЫ:
 - Тебе даются РЕАЛЬНЫЕ исторические события этого дня из Wikipedia
@@ -311,7 +311,7 @@ def cmd_fact(message):
 # ============================================================
 # FREE TEXT — Coach
 # ============================================================
-COACH_PROMPT = """Ты — мотивационный коуч Миши (предприниматель, Израиль, салон красоты iStudio).
+COACH_PROMPT = """Ты — мотивационный коуч Михаила Соломоновича (предприниматель, Израиль, салон красоты iStudio).
 Коротко (3-7 предложений). Конкретно. Без Markdown. Тон зависит от времени суток."""
 
 @bot.message_handler(func=lambda m: m.chat.id == MY_CHAT_ID)
@@ -319,7 +319,7 @@ def handle_text(message):
     user_text = message.text.strip()
     hour = get_israel_now().hour
     time_ctx = "утро" if hour < 12 else "день" if hour < 18 else "вечер"
-    prompt = f"Сейчас {time_ctx} ({get_israel_now().strftime('%H:%M')}). Миша: «{user_text}»"
+    prompt = f"Сейчас {time_ctx} ({get_israel_now().strftime('%H:%M')}). Соломонович: «{user_text}»"
     response = call_claude(COACH_PROMPT, prompt, max_tokens=1000)
     if response:
         safe_send(MY_CHAT_ID, response)
