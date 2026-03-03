@@ -359,7 +359,8 @@ def handle_text(message):
     hour = get_israel_now().hour
     time_ctx = "утро" if hour < 12 else "день" if hour < 18 else "вечер"
     facts = fetch_this_day_facts()
-    prompt = f"Сейчас {time_ctx} ({get_israel_now().strftime('%H:%M')}). Сегодня: {today_display()}.\n\nФАКТЫ ЭТОГО ДНЯ (выбери один малоизвестный и удивительный):\n{facts}\n\nСоломонович написал: «{user_text}»"
+    already_used = used_facts_today.get("morning", "") + used_facts_today.get("afternoon", "") + used_facts_today.get("evening", "")
+    prompt = f"Сейчас {time_ctx} ({get_israel_now().strftime('%H:%M')}). Сегодня: {today_display()}.\n\nФАКТЫ ЭТОГО ДНЯ (выбери один малоизвестный и удивительный):\n{facts}\n\nВот факты которые УЖЕ ИСПОЛЬЗОВАЛИСЬ сегодня — НЕ ПОВТОРЯЙ их, выбери ДРУГОЙ:\n---\n{already_used[:1000]}\n---\n\nСоломонович написал: «{user_text}»"
     response = call_claude(COACH_PROMPT, prompt, max_tokens=1500)
     if response:
         safe_send(MY_CHAT_ID, response)
