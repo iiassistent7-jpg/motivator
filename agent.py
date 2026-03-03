@@ -18,6 +18,8 @@ ISRAEL_UTC_OFFSET = 2
 
 bot = telebot.TeleBot(TELEGRAM_TOKEN)
 claude = anthropic.Anthropic(api_key=ANTHROPIC_KEY)
+# Track used facts per day to avoid repetition
+used_facts_today = {"date": "", "morning": "", "afternoon": "", "evening": ""}
 
 # ============================================================
 # HELPERS
@@ -175,7 +177,8 @@ MORNING_PROMPT = BASE_PROMPT + """
 4. Кто родился в этот день — выбери самого интересного человека, расскажи его историю в 3-4 предложениях
 5. Цитата (НЕ банальная — не "верь в себя", а острая и неожиданная, с указанием автора)
 6. Связь с бизнесом Соломоновича — как урок дня применим к iStudio или GlowNow
-7. Пинок на день — одно мощное предложение"""
+7. Шутка или ирония — одна смешная фраза для настроения
+8. Пинок на день — одно мощное предложение"""
 
 DAY_PROMPT = BASE_PROMPT + """
 
@@ -187,8 +190,8 @@ DAY_PROMPT = BASE_PROMPT + """
 2. Два факта дня которые НЕ были утром — с подробностями
 3. Бизнес-совет — ОЧЕНЬ конкретный, применимый сегодня. Не общие слова а конкретная тактика с примером. Например: "Возьми телефон, открой WhatsApp, напиши 3 клиентам которые были месяц назад — просто спроси как результат процедуры"
 4. Израильский стартап — КОНКРЕТНАЯ история: название, основатель, что сделали, сколько подняли, что необычного. Малоизвестный лучше.
-5. Бизнес-юмор или ирония (2-3 предложения)
-6. Мини-поддержка — одно тёплое предложение"""
+5. Бизнес-юмор — ОБЯЗАТЕЛЬНО смешная история или анекдот про бизнес/предпринимательство. Не плоская шутка, а реально смешная ситуация из жизни бизнеса. 3-5 предложений. Можно из израильской бизнес-культуры.
+6. Поддержка — тёплые слова, напомни что он молодец и делает больше чем думает. 2-3 предложения с конкретикой про его достижения (iStudio, GlowNow, технологии)."""
 
 EVENING_PROMPT = BASE_PROMPT + """
 
@@ -201,7 +204,7 @@ EVENING_PROMPT = BASE_PROMPT + """
 3. Урок из этой истории — как это применимо к предпринимателю
 4. Факт дня — один удивительный, которого не было утром и днём
 5. Вопрос для рефлексии — КОНКРЕТНЫЙ. "Какой один звонок завтра может изменить следующий месяц в iStudio?" или "Если бы у тебя остался только один рекламный канал — какой бы выбрал и почему?"
-6. Тёплый финал — по-мужски, с уважением"""
+6. Тёплый финал — по-мужски, с уважением. Напомни что два бизнеса, семья, технологии — это реально много. Он справляется лучше чем думает. 2-3 предложения искренней поддержки."""
 
 # ============================================================
 # SAFE SEND
@@ -240,9 +243,12 @@ def safe_send(chat_id, text, max_len=4000):
 def send_morning():
     date_str = today_display()
     facts = fetch_this_day_facts()
-    prompt = f"Сегодня: {date_str}.\n\n{facts}\n\nСгенерируй УТРЕННЕЕ сообщение. Выбери самые удивительные факты."
+    used_facts_today["date"] = get_israel_now().strftime("%Y-%m-%d")
+    used_facts_today["morning"] = facts[:500]
+    prompt = f"Сегодня: {date_str}.\n\n{facts}\n\nСгенерируй УТРЕННЕЕ сообщение. Выбери самые удивительные факты. Запомни какие факты ты выбрал — днём и вечером будут ДРУГИЕ."
     response = call_claude(MORNING_PROMPT, prompt)
     if response:
+        used_facts_today["morning"] = response
         safe_send(MY_CHAT_ID, response)
     else:
         safe_send(MY_CHAT_ID, f"☀️ {date_str}\n\nClaude думает... Но ты не думай — действуй!")
@@ -250,9 +256,11 @@ def send_morning():
 def send_afternoon():
     date_str = today_display()
     facts = fetch_this_day_facts()
-    prompt = f"Сегодня: {date_str}.\n\n{facts}\n\nСгенерируй ДНЕВНОЕ сообщение. Выбери ДРУГИЕ факты, не те что могли быть утром."
+    already_used = used_facts_today.get("morning", "")
+    prompt = f"Сегодня: {date_str}.\n\n{facts}\n\nВот что УЖЕ БЫЛО в утреннем сообщении (НЕ ПОВТОРЯЙ эти факты, выбери СОВЕРШЕННО ДРУГИЕ):\n---\n{already_used[:800]}\n---\n\nСгенерируй ДНЕВНОЕ сообщение с НОВЫМИ фактами."
     response = call_claude(DAY_PROMPT, prompt)
     if response:
+        used_facts_today["afternoon"] = response
         safe_send(MY_CHAT_ID, response)
     else:
         safe_send(MY_CHAT_ID, "🍽 Сделай одну вещь которую откладывал. Прямо сейчас.")
@@ -260,9 +268,12 @@ def send_afternoon():
 def send_evening():
     date_str = today_display()
     facts = fetch_this_day_facts()
-    prompt = f"Сегодня: {date_str}.\n\n{facts}\n\nСгенерируй ВЕЧЕРНЕЕ сообщение. Фокус на преодоление и рефлексию."
+    already_morning = used_facts_today.get("morning", "")
+    already_afternoon = used_facts_today.get("afternoon", "")
+    prompt = f"Сегодня: {date_str}.\n\n{facts}\n\nВот что УЖЕ БЫЛО утром (НЕ ПОВТОРЯЙ):\n---\n{already_morning[:600]}\n---\nВот что БЫЛО днём (НЕ ПОВТОРЯЙ):\n---\n{already_afternoon[:600]}\n---\n\nСгенерируй ВЕЧЕРНЕЕ сообщение с ПОЛНОСТЬЮ НОВЫМИ фактами и историей."
     response = call_claude(EVENING_PROMPT, prompt)
     if response:
+        used_facts_today["evening"] = response
         safe_send(MY_CHAT_ID, response)
     else:
         safe_send(MY_CHAT_ID, "🌙 Чем сегодня будешь гордиться через год? Отдыхай.")
